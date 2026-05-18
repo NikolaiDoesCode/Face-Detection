@@ -1,41 +1,38 @@
-# config.yaml — Central configuration for training and detection.
-# All file-path values are relative to the project root.
-
-# ── Data ──────────────────────────────────────────────────────────────────────
+# config.yaml - Central configuration for training and detection.
 data:
-  positives_dir: data/positives        # LFW face crops (64×64 PNGs)
-  negatives_dir: data/negatives        # background patches (64×64 PNGs)
-  backgrounds_dir: data/backgrounds    # raw background images to mine negatives from
-  patch_size: 64                       # width = height of every patch
-  val_split: 0.2                       # fraction of data held out for validation
-  num_workers: 4                       # DataLoader worker processes
+  positives_dir: data/positives
+  negatives_dir: data/negatives
+  backgrounds_dir: data/backgrounds
+  patch_size: 64
+  val_split: 0.2
+  num_workers: 4                        # May need to set it to 0 for MacOS (If running from a notebook)
+  manifest_file: data/manifest.csv
+  normalize_mean: [0.485, 0.456, 0.406]
+  normalize_std:  [0.229, 0.224, 0.225]
 
-# ── Training ──────────────────────────────────────────────────────────────────
 training:
   epochs: 30
   batch_size: 64
   learning_rate: 0.001
-  weight_decay: 0.0001                 # L2 regularisation in Adam
-  lr_patience: 5                       # ReduceLROnPlateau patience (epochs)
-  lr_factor: 0.5                       # multiply LR by this when plateau detected
+  weight_decay: 0.0001
+  lr_patience: 5
+  lr_factor: 0.5
   checkpoint_dir: checkpoints
-  runs_dir: runs                       # loss curves and metrics CSV written here
+  runs_dir: runs
 
-# ── Model ─────────────────────────────────────────────────────────────────────
 model:
   dropout: 0.5
 
-# ── Detection ─────────────────────────────────────────────────────────────────
 detection:
   checkpoint: checkpoints/best_model.pth
-  detection_threshold: 0.85            # minimum CNN confidence to accept a box
-  nms_iou_threshold: 0.3              # IoU above which two boxes are merged by NMS
-  scales: [1.0, 0.75, 0.5, 0.25]     # image pyramid scales
-  step_size: 16                        # sliding window stride in pixels (at each scale)
+  detection_threshold: 0.85
+  nms_iou_threshold: 0.3
+  scales: [1.0, 0.75, 0.5, 0.25]
+  step_size: 16
+  inference_batch_size: 256          # max patches per GPU forward pass; reduce if OOM
 
-# ── Recording (main.py) ───────────────────────────────────────────────────────
 recording:
-  seconds_after_detection: 5          # keep recording this many seconds after last face
+  seconds_after_detection: 5
   output_dir: recordings
   fourcc: mp4v
   fps: 20
