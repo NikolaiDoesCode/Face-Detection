@@ -8,7 +8,6 @@ myenv/
 data/
 outputs/
 detections/
-runs/
 checkpoints/
 recordings/
 screenshots/
