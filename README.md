@@ -84,7 +84,7 @@ A few specific choices worth noting: no padding on the conv layers (edge pixels 
 
 ### Dataset
 
-13,233 positive samples from [LFW (Labeled Faces in the Wild)](http://vis-www.cs.umass.edu/lfw/), downloaded automatically via sklearn's `fetch_lfw_people`. Each crop is resized to 64×64 RGB and saved as PNG.
+13,233 positive samples from LFW (Labeled Faces in the Wild), downloaded automatically via sklearn's `fetch_lfw_people`. Each crop is resized to 64×64 RGB and saved as PNG.
 
 13,233 negative samples mined from COCO 2017 train images (118k images, randomly sampled). Each negative is a random 64×64 crop from a background-only image, extracted at a random scale between 0.5× and 2.0× to give variety. The multiscale jitter is intentional — it mimics the different effective resolutions the sliding window will see at inference time.
 
