@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+.env
+venv/
+myenv/
+.DS_Store
+data/
+outputs/
+detections/
+*.pth
+*.pickle
