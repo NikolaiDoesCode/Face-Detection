@@ -25,8 +25,8 @@ model:
 
 detection:
   checkpoint: checkpoints/best_model.pth
-  detection_threshold: 0.85
-  nms_iou_threshold: 0.3
+  detection_threshold: 0.70           # minimum confidence to generate a candidate box
+  nms_iou_threshold: 0.10             # boxes with IoU > this are merged; 0.1 suppresses cross-scale duplicates
   scales: [1.0, 0.75, 0.5, 0.25]
   step_size: 16
   inference_batch_size: 256          # max patches per GPU forward pass; reduce if OOM
