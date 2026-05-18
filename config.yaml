@@ -1,0 +1,41 @@
+# config.yaml — Central configuration for training and detection.
+# All file-path values are relative to the project root.
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data:
+  positives_dir: data/positives        # LFW face crops (64×64 PNGs)
+  negatives_dir: data/negatives        # background patches (64×64 PNGs)
+  backgrounds_dir: data/backgrounds    # raw background images to mine negatives from
+  patch_size: 64                       # width = height of every patch
+  val_split: 0.2                       # fraction of data held out for validation
+  num_workers: 4                       # DataLoader worker processes
+
+# ── Training ──────────────────────────────────────────────────────────────────
+training:
+  epochs: 30
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.0001                 # L2 regularisation in Adam
+  lr_patience: 5                       # ReduceLROnPlateau patience (epochs)
+  lr_factor: 0.5                       # multiply LR by this when plateau detected
+  checkpoint_dir: checkpoints
+  runs_dir: runs                       # loss curves and metrics CSV written here
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  dropout: 0.5
+
+# ── Detection ─────────────────────────────────────────────────────────────────
+detection:
+  checkpoint: checkpoints/best_model.pth
+  detection_threshold: 0.85            # minimum CNN confidence to accept a box
+  nms_iou_threshold: 0.3              # IoU above which two boxes are merged by NMS
+  scales: [1.0, 0.75, 0.5, 0.25]     # image pyramid scales
+  step_size: 16                        # sliding window stride in pixels (at each scale)
+
+# ── Recording (main.py) ───────────────────────────────────────────────────────
+recording:
+  seconds_after_detection: 5          # keep recording this many seconds after last face
+  output_dir: recordings
+  fourcc: mp4v
+  fps: 20

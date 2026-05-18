@@ -1,0 +1,20 @@
+# Core ML
+torch>=2.2.0
+torchvision>=0.17.0
+
+# Computer vision
+opencv-python>=4.9.0
+
+# Dataset download
+scikit-learn>=1.4.0   # provides fetch_lfw_people
+
+# Image processing
+Pillow>=10.2.0
+numpy>=1.26.0
+
+# Config parsing
+PyYAML>=6.0.1
+
+# Metrics and plotting
+matplotlib>=3.8.0
+scikit-image>=0.22.0  # for IoU helpers during NMS
