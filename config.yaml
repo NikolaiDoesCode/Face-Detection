@@ -2,7 +2,7 @@
 data:
   positives_dir: data/positives
   negatives_dir: data/negatives
-  backgrounds_dir: data/backgrounds
+  backgrounds_dir: /Users/nikolaidaelemans/Downloads/coco2017/train2017  # 118k COCO images
   patch_size: 64
   val_split: 0.2
   num_workers: 4                        # May need to set it to 0 for MacOS (If running from a notebook)
@@ -11,7 +11,7 @@ data:
   normalize_std:  [0.229, 0.224, 0.225]
 
 training:
-  epochs: 30
+  epochs: 20
   batch_size: 64
   learning_rate: 0.001
   weight_decay: 0.0001
