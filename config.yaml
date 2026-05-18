@@ -36,3 +36,7 @@ recording:
   output_dir: recordings
   fourcc: mp4v
   fps: 20
+
+screenshots:
+  output_dir: screenshots
+  min_interval_secs: 10          # minimum seconds between screenshots; prevents burst saving

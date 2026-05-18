@@ -11,5 +11,7 @@ detections/
 runs/
 checkpoints/
 recordings/
+screenshots/
 *.pth
 *.pickle
+.claude

@@ -15,6 +15,11 @@ Usage
 Keys while running
 ------------------
     q   quit cleanly
+
+Outputs
+-------
+    recordings/   timestamped MP4s, written while a face is present
+    screenshots/  timestamped PNGs, one per detection event (debounced)
 """
 
 import argparse
@@ -47,11 +52,12 @@ from detect import Detector
 #   slightly higher thickness) so it remains readable against any background.
 # ══════════════════════════════════════════════════════════════════════════════
 
-_GREEN = (0, 220, 0)
-_RED   = (0, 0, 220)
-_GREY  = (220, 220, 220)
-_BLACK = (0, 0, 0)
-_FONT  = cv2.FONT_HERSHEY_SIMPLEX
+_GREEN  = (0, 220, 0)
+_RED    = (0, 0, 220)
+_ORANGE = (0, 165, 220)   # screenshot flash indicator
+_GREY   = (220, 220, 220)
+_BLACK  = (0, 0, 0)
+_FONT   = cv2.FONT_HERSHEY_SIMPLEX
 
 
 def _put_text(
@@ -82,17 +88,27 @@ def _draw_boxes(frame, boxes: list[tuple]) -> None:
         _put_text(frame, label, (x, label_y), scale=0.6, color=_GREEN)
 
 
-def _draw_hud(frame, fps: float, n_faces: int, recording: bool) -> None:
+def _draw_hud(
+    frame,
+    fps: float,
+    n_faces: int,
+    recording: bool,
+    screenshot_flash: bool = False,
+) -> None:
     """
-    Draw the heads-up display: face count, FPS, and recording indicator.
+    Draw the heads-up display: face count, FPS, and status indicators.
 
-    Positioned in the top-left corner with fixed spacing so elements never
-    overlap each other regardless of frame size.
+    Indicators stack vertically so REC and CAM never overlap.
+    screenshot_flash should be True for ~2 seconds after a screenshot is saved.
     """
-    _put_text(frame, f"Faces : {n_faces}", (10, 26),  color=_GREY)
-    _put_text(frame, f"FPS   : {fps:.1f}", (10, 52),  color=_GREY)
+    _put_text(frame, f"Faces : {n_faces}", (10, 26), color=_GREY)
+    _put_text(frame, f"FPS   : {fps:.1f}",  (10, 52), color=_GREY)
+    y = 78
     if recording:
-        _put_text(frame, "● REC", (10, 78), scale=0.75, color=_RED, thickness=2)
+        _put_text(frame, "● REC", (10, y), scale=0.75, color=_RED,    thickness=2)
+        y += 26
+    if screenshot_flash:
+        _put_text(frame, "● CAM", (10, y), scale=0.75, color=_ORANGE, thickness=2)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -240,7 +256,66 @@ class _Recorder:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SECTION 4 — Webcam loop
+# SECTION 4 — Screenshot capture
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Takes a PNG snapshot of the annotated frame whenever a face is detected,
+# subject to a minimum interval so a face sitting in frame for 10 minutes
+# doesn't fill the screenshots folder with thousands of near-identical images.
+#
+# The interval is intentionally coarse (default 10 seconds).  The goal is
+# "one representative image per detection event", not a frame-by-frame log —
+# the MP4 recording handles that.  If you want a tighter burst, lower
+# screenshots.min_interval_secs in config.yaml.
+#
+# update() returns True on the frame a screenshot was actually saved so the
+# HUD can flash a "● CAM" indicator for a couple of seconds.
+# ══════════════════════════════════════════════════════════════════════════════
+
+class _Screenshotter:
+    """
+    Debounced screenshot capture: saves a PNG when a face is detected,
+    at most once every min_interval_secs.
+
+    Args:
+        output_dir:        directory to write PNG files.
+        min_interval_secs: cooldown between saves.
+        enabled:           if False, update() is a no-op (--no-screenshot).
+    """
+
+    def __init__(self, output_dir: Path, min_interval_secs: float, enabled: bool):
+        self._output_dir = output_dir
+        self._interval   = min_interval_secs
+        self._enabled    = enabled
+        self._last_shot  = 0.0   # epoch time of most recent save
+
+        if enabled:
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+    def update(self, frame, face_detected: bool) -> bool:
+        """
+        Conditionally save a screenshot.
+
+        Returns True if a screenshot was written this call, False otherwise.
+        Callers use the return value to drive the HUD flash indicator.
+        """
+        if not self._enabled or not face_detected:
+            return False
+
+        now = time.time()
+        if now - self._last_shot < self._interval:
+            return False   # still within the cooldown window
+
+        timestamp = datetime.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        path      = self._output_dir / f"{timestamp}.png"
+        cv2.imwrite(str(path), frame)
+        self._last_shot = now
+        print(f"  [CAM] Screenshot → {path}")
+        return True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 5 — Webcam loop
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # The loop is intentionally thin — all the heavy logic lives in Detector and
@@ -270,11 +345,13 @@ def _run_loop(
     detector: Detector,
     cap: cv2.VideoCapture,
     recorder: _Recorder,
+    screenshotter: _Screenshotter,
 ) -> None:
     """
     Main frame loop. Runs until the user presses 'q' or the camera disconnects.
     """
-    fps_tracker = _FPSTracker(window=30)
+    fps_tracker       = _FPSTracker(window=30)
+    last_shot_at: float = 0.0   # drives the 2-second HUD flash after each screenshot
 
     while True:
         ok, frame = cap.read()
@@ -283,18 +360,24 @@ def _run_loop(
             continue
 
         # ── Detection ─────────────────────────────────────────────────────────
-        boxes = detector.detect(frame)
+        boxes        = detector.detect(frame)
+        face_present = len(boxes) > 0
 
         # ── Annotate ──────────────────────────────────────────────────────────
         _draw_boxes(frame, boxes)
         fps_tracker.tick()
-        _draw_hud(frame, fps_tracker.fps, len(boxes), recorder.is_recording)
+
+        # Flash "● CAM" for 2 seconds after the most recent screenshot
+        screenshot_flash = (time.time() - last_shot_at) < 2.0
+        _draw_hud(frame, fps_tracker.fps, len(boxes), recorder.is_recording,
+                  screenshot_flash)
+
+        # ── Screenshot ────────────────────────────────────────────────────────
+        if screenshotter.update(frame, face_detected=face_present):
+            last_shot_at = time.time()
 
         # ── Record ────────────────────────────────────────────────────────────
-        # Pass the un-annotated copy? No — we want the boxes burned into the
-        # recording so the saved video shows what was detected when, which is
-        # more useful for demos and debugging than a clean feed.
-        recorder.update(frame, face_detected=len(boxes) > 0)
+        recorder.update(frame, face_detected=face_present)
 
         # ── Display ───────────────────────────────────────────────────────────
         cv2.imshow("Face Detector  (q to quit)", frame)
@@ -344,6 +427,10 @@ def main() -> None:
         "--no-record", action="store_true",
         help="Disable automatic MP4 recording",
     )
+    parser.add_argument(
+        "--no-screenshot", action="store_true",
+        help="Disable automatic PNG screenshots on detection",
+    )
     args = parser.parse_args()
 
     with open(args.config) as f:
@@ -382,13 +469,27 @@ def main() -> None:
     if args.no_record:
         print("  Recording disabled (--no-record).")
     else:
-        print(f"  Recordings → {rec_cfg['output_dir']}/")
+        print(f"  Recordings  → {rec_cfg['output_dir']}/")
+
+    # ── Build screenshotter ───────────────────────────────────────────────────
+    ss_cfg       = config["screenshots"]
+    screenshotter = _Screenshotter(
+        output_dir        = Path(ss_cfg["output_dir"]),
+        min_interval_secs = ss_cfg["min_interval_secs"],
+        enabled           = not args.no_screenshot,
+    )
+
+    if args.no_screenshot:
+        print("  Screenshots disabled (--no-screenshot).")
+    else:
+        print(f"  Screenshots → {ss_cfg['output_dir']}/  "
+              f"(every {ss_cfg['min_interval_secs']}s min)")
 
     print("\nRunning — press 'q' to quit.\n")
 
     # ── Frame loop (always clean up) ──────────────────────────────────────────
     try:
-        _run_loop(detector, cap, recorder)
+        _run_loop(detector, cap, recorder, screenshotter)
     finally:
         recorder.release()
         cap.release()
