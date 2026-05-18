@@ -2,10 +2,14 @@
 __pycache__/
 .env
 venv/
+.venv/
 myenv/
 .DS_Store
 data/
 outputs/
 detections/
+runs/
+checkpoints/
+recordings/
 *.pth
 *.pickle
