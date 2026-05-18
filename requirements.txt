@@ -6,7 +6,7 @@ torchvision>=0.17.0
 opencv-python>=4.9.0
 
 # Dataset download
-scikit-learn>=1.4.0   # provides fetch_lfw_people
+scikit-learn>=1.3.0   # provides fetch_lfw_people, train_test_split, classification_report
 
 # Image processing
 Pillow>=10.2.0
@@ -17,4 +17,3 @@ PyYAML>=6.0.1
 
 # Metrics and plotting
 matplotlib>=3.8.0
-scikit-image>=0.22.0  # for IoU helpers during NMS
